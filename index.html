@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>World Clocks</title>
+<style>
+  :root {
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+
+    --bg: #ffffff;
+    --card-bg: #f7f7f8;
+    --card-border: #e7e7ea;
+    --text-primary: #1a1a1d;
+    --text-secondary: #6b6b73;
+    --accent: #3b6bf6;
+    --accent-soft: #eaf0ff;
+    --danger: #e2483a;
+    --night-tint: #eef0f6;
+    --day-tint: #fff9e8;
+    --shadow: 0 1px 2px rgba(0,0,0,0.04), 0 1px 8px rgba(0,0,0,0.03);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #17171a;
+      --card-bg: #202024;
+      --card-border: #2d2d33;
+      --text-primary: #f0f0f2;
+      --text-secondary: #9a9aa2;
+      --accent: #6d8dfc;
+      --accent-soft: #262c42;
+      --danger: #ff6b5e;
+      --night-tint: #1b1d29;
+      --day-tint: #262417;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 1px 10px rgba(0,0,0,0.25);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #17171a;
+    --card-bg: #202024;
+    --card-border: #2d2d33;
+    --text-primary: #f0f0f2;
+    --text-secondary: #9a9aa2;
+    --accent: #6d8dfc;
+    --accent-soft: #262c42;
+    --danger: #ff6b5e;
+    --night-tint: #1b1d29;
+    --day-tint: #262417;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 1px 10px rgba(0,0,0,0.25);
+  }
+
+  html, body {
+    height: 100%;
+  }
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text-primary);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    padding: 20px 16px calc(20px + env(safe-area-inset-bottom, 0px));
+    min-height: 100%;
+  }
+
+  .wrap {
+    max-width: 960px;
+    margin: 0 auto;
+  }
+
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+
+  .header h1 {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    margin: 0;
+  }
+
+  .add-btn {
+    appearance: none;
+    border: 1px solid var(--card-border);
+    background: var(--card-bg);
+    color: var(--text-primary);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 7px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: background 0.15s ease, border-color 0.15s ease;
+  }
+  .add-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px;
+  }
+
+  .card {
+    position: relative;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 14px;
+    padding: 16px 16px 14px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    min-height: 130px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+
+  .card .tint-bar {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 4px;
+  }
+  .tint-day { background: linear-gradient(90deg, #ffd76a, #ffb84d); }
+  .tint-night { background: linear-gradient(90deg, #5b6ee8, #7d5be8); }
+
+  .card-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .city-name {
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.25;
+    word-break: break-word;
+  }
+
+  .tz-label {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-top: 2px;
+  }
+
+  .offset-pill {
+    font-size: 10.5px;
+    font-weight: 600;
+    color: var(--accent);
+    background: var(--accent-soft);
+    padding: 2px 7px;
+    border-radius: 999px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .time {
+    font-size: 30px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+    margin-top: 10px;
+    line-height: 1.1;
+  }
+  .time .secs {
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--text-secondary);
+  }
+
+  .date-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+
+  .icon {
+    font-size: 14px;
+  }
+
+  .card-actions {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    display: flex;
+    gap: 4px;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+  }
+  .card:hover .card-actions,
+  .card:focus-within .card-actions { opacity: 1; }
+
+  .icon-btn {
+    appearance: none;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 13px;
+    padding: 3px 5px;
+    border-radius: 6px;
+    line-height: 1;
+  }
+  .icon-btn:hover { background: var(--card-border); color: var(--text-primary); }
+  .icon-btn.danger:hover { color: var(--danger); }
+
+  .empty {
+    text-align: center;
+    padding: 48px 16px;
+    color: var(--text-secondary);
+    font-size: 13px;
+  }
+
+  /* Modal */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.35);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    z-index: 50;
+  }
+  .overlay.open { display: flex; }
+
+  .modal {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 16px;
+    width: 100%;
+    max-width: 380px;
+    padding: 20px;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.2);
+  }
+  .modal h2 {
+    font-size: 15px;
+    margin: 0 0 16px;
+  }
+  .field { margin-bottom: 14px; }
+  .field label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+  }
+  .field input, .field select {
+    width: 100%;
+    padding: 9px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--card-border);
+    background: var(--bg);
+    color: var(--text-primary);
+    font-size: 13.5px;
+    font-family: inherit;
+  }
+  .field input:focus, .field select:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .hint {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-top: 5px;
+  }
+  .modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 18px;
+  }
+  .btn {
+    appearance: none;
+    border: none;
+    padding: 9px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-secondary { background: transparent; color: var(--text-secondary); }
+  .btn-secondary:hover { color: var(--text-primary); }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="header">
+      <h1>World Clocks</h1>
+      <button class="add-btn" id="openAdd">+ Add city</button>
+    </div>
+    <div class="grid" id="grid"></div>
+    <div class="empty" id="emptyState" style="display:none;">
+      No cities yet — tap "+ Add city" to start building your board.
+    </div>
+  </div>
+
+  <div class="overlay" id="overlay">
+    <div class="modal">
+      <h2 id="modalTitle">Add a city</h2>
+      <div class="field">
+        <label for="cityInput">Label</label>
+        <input id="cityInput" type="text" placeholder="e.g. Los Angeles" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="tzSelect">Timezone</label>
+        <select id="tzSelect"></select>
+      </div>
+      <div class="field">
+        <label for="tzCustom">Or type any IANA timezone (optional)</label>
+        <input id="tzCustom" type="text" placeholder="e.g. Asia/Seoul" autocomplete="off">
+        <div class="hint">Overrides the dropdown above if filled in.</div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" id="cancelAdd">Cancel</button>
+        <button class="btn btn-primary" id="saveAdd">Save</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+(function() {
+  var STORAGE_KEY = "worldclock.cities.v1";
+  var editingIndex = null;
+
+  var COMMON_ZONES = [
+    ["London", "Europe/London"],
+    ["Birmingham", "Europe/London"],
+    ["Paris", "Europe/Paris"],
+    ["Dublin", "Europe/Dublin"],
+    ["Lisbon", "Europe/Lisbon"],
+    ["Berlin", "Europe/Berlin"],
+    ["Madrid", "Europe/Madrid"],
+    ["Rome", "Europe/Rome"],
+    ["Amsterdam", "Europe/Amsterdam"],
+    ["New York", "America/New_York"],
+    ["Los Angeles", "America/Los_Angeles"],
+    ["Chicago", "America/Chicago"],
+    ["Toronto", "America/Toronto"],
+    ["Vancouver", "America/Vancouver"],
+    ["Mexico City", "America/Mexico_City"],
+    ["Sao Paulo", "America/Sao_Paulo"],
+    ["Dubai", "Asia/Dubai"],
+    ["Mumbai", "Asia/Kolkata"],
+    ["Singapore", "Asia/Singapore"],
+    ["Hong Kong", "Asia/Hong_Kong"],
+    ["Tokyo", "Asia/Tokyo"],
+    ["Seoul", "Asia/Seoul"],
+    ["Shanghai", "Asia/Shanghai"],
+    ["Bangkok", "Asia/Bangkok"],
+    ["Sydney", "Australia/Sydney"],
+    ["Melbourne", "Australia/Melbourne"],
+    ["Auckland", "Pacific/Auckland"],
+    ["Johannesburg", "Africa/Johannesburg"],
+    ["Cairo", "Africa/Cairo"],
+    ["Nairobi", "Africa/Nairobi"],
+    ["Istanbul", "Europe/Istanbul"],
+    ["Moscow", "Europe/Moscow"],
+    ["UTC", "UTC"]
+  ];
+
+  var DEFAULT_CITIES = [
+    { label: "London", tz: "Europe/London" },
+    { label: "Paris", tz: "Europe/Paris" },
+    { label: "New York", tz: "America/New_York" },
+    { label: "Los Angeles", tz: "America/Los_Angeles" }
+  ];
+
+  function loadCities() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return DEFAULT_CITIES.slice();
+      var parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed) || parsed.length === 0) return DEFAULT_CITIES.slice();
+      return parsed;
+    } catch (e) {
+      return DEFAULT_CITIES.slice();
+    }
+  }
+
+  function saveCities(cities) {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(cities));
+    } catch (e) { /* ignore quota / privacy-mode errors */ }
+  }
+
+  var cities = loadCities();
+
+  var grid = document.getElementById("grid");
+  var emptyState = document.getElementById("emptyState");
+  var overlay = document.getElementById("overlay");
+  var tzSelect = document.getElementById("tzSelect");
+  var cityInput = document.getElementById("cityInput");
+  var tzCustom = document.getElementById("tzCustom");
+  var modalTitle = document.getElementById("modalTitle");
+
+  COMMON_ZONES.forEach(function(z) {
+    var opt = document.createElement("option");
+    opt.value = z[1];
+    opt.textContent = z[0] + " — " + z[1];
+    tzSelect.appendChild(opt);
+  });
+
+  function openModal(index) {
+    editingIndex = (typeof index === "number") ? index : null;
+    if (editingIndex !== null) {
+      modalTitle.textContent = "Edit city";
+      cityInput.value = cities[editingIndex].label;
+      var tz = cities[editingIndex].tz;
+      var matched = COMMON_ZONES.some(function(z) { return z[1] === tz; });
+      tzSelect.value = matched ? tz : tzSelect.options[0].value;
+      tzCustom.value = matched ? "" : tz;
+    } else {
+      modalTitle.textContent = "Add a city";
+      cityInput.value = "";
+      tzSelect.selectedIndex = 0;
+      tzCustom.value = "";
+    }
+    overlay.classList.add("open");
+    setTimeout(function() { cityInput.focus(); }, 30);
+  }
+
+  function closeModal() {
+    overlay.classList.remove("open");
+    editingIndex = null;
+  }
+
+  document.getElementById("openAdd").addEventListener("click", function() { openModal(); });
+  document.getElementById("cancelAdd").addEventListener("click", closeModal);
+  overlay.addEventListener("click", function(e) {
+    if (e.target === overlay) closeModal();
+  });
+
+  document.getElementById("saveAdd").addEventListener("click", function() {
+    var label = cityInput.value.trim();
+    var tz = tzCustom.value.trim() || tzSelect.value;
+
+    if (!label) { cityInput.focus(); return; }
+
+    try {
+      new Intl.DateTimeFormat("en-US", { timeZone: tz });
+    } catch (e) {
+      alert("That doesn't look like a valid timezone. Try something like Europe/Paris or Asia/Tokyo.");
+      return;
+    }
+
+    if (editingIndex !== null) {
+      cities[editingIndex] = { label: label, tz: tz };
+    } else {
+      cities.push({ label: label, tz: tz });
+    }
+    saveCities(cities);
+    closeModal();
+    render();
+  });
+
+  function removeCity(index) {
+    cities.splice(index, 1);
+    saveCities(cities);
+    render();
+  }
+
+  function getOffsetMinutes(tz, date) {
+    try {
+      var dtf = new Intl.DateTimeFormat("en-US", {
+        timeZone: tz, hour12: false,
+        year: "numeric", month: "2-digit", day: "2-digit",
+        hour: "2-digit", minute: "2-digit", second: "2-digit"
+      });
+      var parts = dtf.formatToParts(date).reduce(function(acc, p) {
+        acc[p.type] = p.value; return acc;
+      }, {});
+      var asUTC = Date.UTC(
+        parseInt(parts.year, 10),
+        parseInt(parts.month, 10) - 1,
+        parseInt(parts.day, 10),
+        parts.hour === "24" ? 0 : parseInt(parts.hour, 10),
+        parseInt(parts.minute, 10),
+        parseInt(parts.second, 10)
+      );
+      return Math.round((asUTC - date.getTime()) / 60000);
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  function formatOffset(mins) {
+    var sign = mins >= 0 ? "+" : "-";
+    var abs = Math.abs(mins);
+    var h = Math.floor(abs / 60);
+    var m = abs % 60;
+    return "UTC" + sign + h + (m ? ":" + (m < 10 ? "0" + m : m) : "");
+  }
+
+  function buildCard(city, index) {
+    var card = document.createElement("div");
+    card.className = "card";
+
+    var tint = document.createElement("div");
+    tint.className = "tint-bar";
+    card.appendChild(tint);
+
+    var actions = document.createElement("div");
+    actions.className = "card-actions";
+    var editBtn = document.createElement("button");
+    editBtn.className = "icon-btn";
+    editBtn.title = "Edit";
+    editBtn.textContent = "✎";
+    editBtn.addEventListener("click", function() { openModal(index); });
+    var delBtn = document.createElement("button");
+    delBtn.className = "icon-btn danger";
+    delBtn.title = "Remove";
+    delBtn.textContent = "✕";
+    delBtn.addEventListener("click", function() { removeCity(index); });
+    actions.appendChild(editBtn);
+    actions.appendChild(delBtn);
+    card.appendChild(actions);
+
+    var top = document.createElement("div");
+    top.className = "card-top";
+    var nameWrap = document.createElement("div");
+    var name = document.createElement("div");
+    name.className = "city-name";
+    name.textContent = city.label;
+    var tzLabel = document.createElement("div");
+    tzLabel.className = "tz-label";
+    tzLabel.textContent = city.tz;
+    nameWrap.appendChild(name);
+    nameWrap.appendChild(tzLabel);
+    var pill = document.createElement("div");
+    pill.className = "offset-pill";
+    pill.dataset.role = "offset";
+    top.appendChild(nameWrap);
+    top.appendChild(pill);
+    card.appendChild(top);
+
+    var time = document.createElement("div");
+    time.className = "time";
+    time.dataset.role = "time";
+    card.appendChild(time);
+
+    var dateRow = document.createElement("div");
+    dateRow.className = "date-row";
+    var dateText = document.createElement("span");
+    dateText.dataset.role = "date";
+    var iconText = document.createElement("span");
+    iconText.className = "icon";
+    iconText.dataset.role = "icon";
+    dateRow.appendChild(dateText);
+    dateRow.appendChild(iconText);
+    card.appendChild(dateRow);
+
+    card._city = city;
+    card._tint = tint;
+    return card;
+  }
+
+  function render() {
+    grid.innerHTML = "";
+    if (cities.length === 0) {
+      emptyState.style.display = "block";
+      return;
+    }
+    emptyState.style.display = "none";
+    cities.forEach(function(city, index) {
+      grid.appendChild(buildCard(city, index));
+    });
+    tick();
+  }
+
+  function tick() {
+    var now = new Date();
+    var cards = grid.children;
+    for (var i = 0; i < cards.length; i++) {
+      var card = cards[i];
+      var city = card._city;
+      if (!city) continue;
+
+      var hourFmt = new Intl.DateTimeFormat("en-GB", {
+        timeZone: city.tz, hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false
+      });
+      var parts = hourFmt.formatToParts(now).reduce(function(acc, p) {
+        acc[p.type] = p.value; return acc;
+      }, {});
+      var hh = parts.hour, mm = parts.minute, ss = parts.second;
+
+      var timeEl = card.querySelector('[data-role="time"]');
+      timeEl.innerHTML = hh + ":" + mm + '<span class="secs">:' + ss + "</span>";
+
+      var dateFmt = new Intl.DateTimeFormat("en-GB", {
+        timeZone: city.tz, weekday: "short", day: "numeric", month: "short"
+      });
+      var dateEl = card.querySelector('[data-role="date"]');
+      dateEl.textContent = dateFmt.format(now);
+
+      var offsetMins = getOffsetMinutes(city.tz, now);
+      var pillEl = card.querySelector('[data-role="offset"]');
+      pillEl.textContent = formatOffset(offsetMins);
+
+      var h = parseInt(hh, 10);
+      var isDay = h >= 7 && h < 19;
+      var iconEl = card.querySelector('[data-role="icon"]');
+      iconEl.textContent = isDay ? "☀️" : "🌙";
+      card._tint.className = "tint-bar " + (isDay ? "tint-day" : "tint-night");
+    }
+  }
+
+  render();
+  setInterval(tick, 1000);
+})();
+</script>
+</body>
+</html>
