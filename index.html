@@ -96,6 +96,16 @@
     letter-spacing: -0.01em;
   }
 
+  .header-time {
+    font-size: 60px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-primary);
+    letter-spacing: -0.02em;
+    line-height: 1;
+    margin-top: 2px;
+  }
+
   .grid {
     display: flex;
     flex-wrap: nowrap;
@@ -170,10 +180,10 @@
   }
 
   .time {
-    font-size: 24px;
+    font-size: 34px;
     font-weight: 700;
     font-variant-numeric: tabular-nums;
-    letter-spacing: -0.01em;
+    letter-spacing: -0.02em;
     margin-top: 8px;
     line-height: 1.1;
     white-space: nowrap;
@@ -185,15 +195,15 @@
   .weather-row {
     display: flex;
     align-items: center;
-    gap: 5px;
-    margin-top: 7px;
-    font-size: 11px;
+    gap: 6px;
+    margin-top: 9px;
+    font-size: 13.5px;
     color: var(--text-secondary);
     white-space: nowrap;
   }
 
   .weather-row .icon {
-    font-size: 13px;
+    font-size: 17px;
     line-height: 1;
   }
 
@@ -314,6 +324,7 @@
     <div class="header">
       <h1>Race Timezones</h1>
       <div class="header-date" id="headerDate"></div>
+      <div class="header-time" id="headerTime"></div>
     </div>
     <div class="grid" id="grid"></div>
     <div class="empty" id="emptyState" style="display:none;">
@@ -508,18 +519,30 @@
     }
   }
 
+  function findLondonCity() {
+    for (var i = 0; i < cities.length; i++) {
+      if (/london/i.test(cities[i].label)) return cities[i];
+    }
+    return null;
+  }
+
   function updateHeaderDate() {
     var headerDateEl = document.getElementById("headerDate");
-    if (!headerDateEl) return;
-    var londonCity = null;
-    for (var i = 0; i < cities.length; i++) {
-      if (/london/i.test(cities[i].label)) { londonCity = cities[i]; break; }
-    }
+    var headerTimeEl = document.getElementById("headerTime");
+    if (!headerDateEl || !headerTimeEl) return;
+    var londonCity = findLondonCity();
     var tz = londonCity ? londonCity.tz : "Europe/London";
-    var fmt = new Intl.DateTimeFormat("en-GB", {
+    var now = new Date();
+
+    var dateFmt = new Intl.DateTimeFormat("en-GB", {
       timeZone: tz, weekday: "long", day: "numeric", month: "long"
     });
-    headerDateEl.textContent = (londonCity ? londonCity.label + " — " : "") + fmt.format(new Date());
+    headerDateEl.textContent = (londonCity ? londonCity.label + " — " : "") + dateFmt.format(now);
+
+    var timeFmt = new Intl.DateTimeFormat("en-GB", {
+      timeZone: tz, hour: "2-digit", minute: "2-digit", hour12: false
+    });
+    headerTimeEl.textContent = timeFmt.format(now);
   }
 
   var DEFAULT_CITIES = [
@@ -730,12 +753,14 @@
 
   function render() {
     grid.innerHTML = "";
-    if (cities.length === 0) {
+    var cardCities = cities.filter(function(c) { return !/london/i.test(c.label); });
+    if (cardCities.length === 0) {
       emptyState.style.display = "block";
       return;
     }
     emptyState.style.display = "none";
     cities.forEach(function(city, index) {
+      if (/london/i.test(city.label)) return; // shown up top instead, not as a card
       grid.appendChild(buildCard(city, index));
     });
     tick();
