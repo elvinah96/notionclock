@@ -217,6 +217,22 @@
     color: var(--text-primary);
   }
 
+  .sun-row {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 4px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    min-height: 14px;
+  }
+
+  .sun-row .icon {
+    font-size: 13px;
+    line-height: 1;
+  }
+
   .card-actions {
     position: absolute;
     top: 10px;
@@ -492,15 +508,36 @@
     var coords = TZ_COORDS[tz];
     if (!coords) return Promise.resolve(null);
     var url = "https://api.open-meteo.com/v1/forecast?latitude=" + coords[0] +
-      "&longitude=" + coords[1] + "&current_weather=true";
+      "&longitude=" + coords[1] + "&current_weather=true&daily=sunrise,sunset&timezone=auto";
     return fetch(url)
       .then(function(res) { return res.json(); })
       .then(function(data) {
         if (!data || !data.current_weather) return null;
+
+        var offsetSec = data.utc_offset_seconds || 0;
+        function localStrToUTCms(localStr) {
+          // Open-Meteo gives local wall-clock time with no offset suffix;
+          // parse it as if it were UTC, then shift by the real offset.
+          return Date.parse(localStr + "Z") - offsetSec * 1000;
+        }
+
+        var upcoming = null;
+        if (data.daily && data.daily.sunrise && data.daily.sunset) {
+          var events = [];
+          for (var i = 0; i < data.daily.time.length; i++) {
+            if (data.daily.sunrise[i]) events.push({ type: "sunrise", ms: localStrToUTCms(data.daily.sunrise[i]) });
+            if (data.daily.sunset[i]) events.push({ type: "sunset", ms: localStrToUTCms(data.daily.sunset[i]) });
+          }
+          var nowMs = Date.now();
+          events = events.filter(function(e) { return e.ms > nowMs; }).sort(function(a, b) { return a.ms - b.ms; });
+          if (events.length) upcoming = events[0];
+        }
+
         return {
           temp: Math.round(data.current_weather.temperature),
           code: data.current_weather.weathercode,
-          isDay: data.current_weather.is_day === 1
+          isDay: data.current_weather.is_day === 1,
+          upcoming: upcoming
         };
       })
       .catch(function() { return null; });
@@ -530,6 +567,8 @@
       var w = weatherCache[city.tz];
       var iconEl = card.querySelector('[data-role="wicon"]');
       var tempEl = card.querySelector('[data-role="wtemp"]');
+      var sunIconEl = card.querySelector('[data-role="sunicon"]');
+      var sunTimeEl = card.querySelector('[data-role="suntime"]');
       if (!iconEl || !tempEl) continue;
       if (w) {
         iconEl.textContent = weatherIconFor(w.code, w.isDay);
@@ -537,6 +576,20 @@
       } else {
         iconEl.textContent = "🌍";
         tempEl.textContent = "—";
+      }
+
+      if (sunIconEl && sunTimeEl) {
+        if (w && w.upcoming) {
+          var isSunrise = w.upcoming.type === "sunrise";
+          var timeFmt = new Intl.DateTimeFormat("en-GB", {
+            timeZone: city.tz, hour: "2-digit", minute: "2-digit", hour12: false
+          });
+          sunIconEl.textContent = isSunrise ? "☀️" : "🌙";
+          sunTimeEl.textContent = timeFmt.format(new Date(w.upcoming.ms));
+        } else {
+          sunIconEl.textContent = "";
+          sunTimeEl.textContent = "";
+        }
       }
     }
   }
@@ -772,6 +825,17 @@
     weatherRow.appendChild(wIcon);
     weatherRow.appendChild(wTemp);
     card.appendChild(weatherRow);
+
+    var sunRow = document.createElement("div");
+    sunRow.className = "sun-row";
+    var sIcon = document.createElement("span");
+    sIcon.className = "icon";
+    sIcon.dataset.role = "sunicon";
+    var sTime = document.createElement("span");
+    sTime.dataset.role = "suntime";
+    sunRow.appendChild(sIcon);
+    sunRow.appendChild(sTime);
+    card.appendChild(sunRow);
 
     card._city = city;
     card._tint = tint;
