@@ -220,16 +220,17 @@
   .sun-row {
     display: flex;
     align-items: center;
-    gap: 5px;
-    margin-top: 4px;
-    font-size: 11px;
+    justify-content: center;
+    gap: 4px;
+    margin-top: 3px;
+    font-size: 9.5px;
     color: var(--text-secondary);
     white-space: nowrap;
-    min-height: 14px;
+    min-height: 12px;
   }
 
   .sun-row .icon {
-    font-size: 13px;
+    font-size: 11px;
     line-height: 1;
   }
 
@@ -812,6 +813,17 @@
     swTime.dataset.role = "swahili";
     card.appendChild(swTime);
 
+    var sunRow = document.createElement("div");
+    sunRow.className = "sun-row";
+    var sIcon = document.createElement("span");
+    sIcon.className = "icon";
+    sIcon.dataset.role = "sunicon";
+    var sTime = document.createElement("span");
+    sTime.dataset.role = "suntime";
+    sunRow.appendChild(sIcon);
+    sunRow.appendChild(sTime);
+    card.appendChild(sunRow);
+
     var weatherRow = document.createElement("div");
     weatherRow.className = "weather-row";
     var wIcon = document.createElement("span");
@@ -825,17 +837,6 @@
     weatherRow.appendChild(wIcon);
     weatherRow.appendChild(wTemp);
     card.appendChild(weatherRow);
-
-    var sunRow = document.createElement("div");
-    sunRow.className = "sun-row";
-    var sIcon = document.createElement("span");
-    sIcon.className = "icon";
-    sIcon.dataset.role = "sunicon";
-    var sTime = document.createElement("span");
-    sTime.dataset.role = "suntime";
-    sunRow.appendChild(sIcon);
-    sunRow.appendChild(sTime);
-    card.appendChild(sunRow);
 
     card._city = city;
     card._tint = tint;
