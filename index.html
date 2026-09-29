@@ -521,9 +521,9 @@
     return label.trim().toLowerCase().replace(/\s*\(.*\)\s*$/, "");
   }
 
-  function formatLegTimes(entries, field) {
-    if (!entries || entries.length === 0) return "";
-    if (entries.length === 1) return entries[0][field];
+  function formatLegTimesList(entries, field) {
+    if (!entries || entries.length === 0) return [];
+    if (entries.length === 1) return [entries[0][field]];
     var groups = [];
     var current = null;
     entries.forEach(function(e) {
@@ -538,16 +538,34 @@
     return groups.map(function(g) {
       var legLabel = g.startLeg === g.endLeg ? ("L" + g.startLeg) : ("L" + g.startLeg + "-L" + g.endLeg);
       return g.value + " (" + legLabel + ")";
-    }).join(" - ");
+    });
   }
 
-  function sunLinesForCity(city) {
+  var TOTAL_LEGS = 8;
+
+  // Rolling 3-leg window: this week shows Legs 1-3, next week (from Monday)
+  // shows Legs 2-4, and so on — one leg further each week.
+  var LEG_WINDOW_ANCHOR_MONDAY = new Date(2026, 8, 28); // Mon 28 Sep 2026 = "this week" = Legs 1-3
+  LEG_WINDOW_ANCHOR_MONDAY.setHours(0, 0, 0, 0);
+
+  function getCurrentLegWindow(now) {
+    var msPerWeek = 7 * 24 * 60 * 60 * 1000;
+    var weeksSinceAnchor = Math.floor((now - LEG_WINDOW_ANCHOR_MONDAY) / msPerWeek);
+    if (weeksSinceAnchor < 0) weeksSinceAnchor = 0;
+    var startLeg = 1 + weeksSinceAnchor;
+    var legs = [startLeg, startLeg + 1];
+    return legs.filter(function(l) { return l >= 1 && l <= TOTAL_LEGS; });
+  }
+
+  function sunLinesForCity(city, legWindow) {
     var key = normalizeCountryKey(city.label);
-    var entries = COUNTRY_LEG_ENTRIES[key];
-    if (!entries) return null;
+    var allEntries = COUNTRY_LEG_ENTRIES[key];
+    if (!allEntries) return null;
+    var entries = allEntries.filter(function(e) { return legWindow.indexOf(e.leg) !== -1; });
+    if (entries.length === 0) return null;
     return {
-      sunrise: formatLegTimes(entries, "sunrise"),
-      sunset: formatLegTimes(entries, "sunset")
+      sunrise: [formatLegTimesList(entries, "sunrise").join(" - ")],
+      sunset: [formatLegTimesList(entries, "sunset").join(" - ")]
     };
   }
 
@@ -855,34 +873,31 @@
     swTime.dataset.role = "swahili";
     card.appendChild(swTime);
 
-    var sunLines = sunLinesForCity(city);
+    var sunLines = sunLinesForCity(city, getCurrentLegWindow(new Date()));
     var sunBlock = document.createElement("div");
     sunBlock.className = "sun-block";
 
-    var sunriseRow = document.createElement("div");
-    sunriseRow.className = "sun-row";
-    var sunriseIcon = document.createElement("span");
-    sunriseIcon.className = "icon";
-    sunriseIcon.textContent = sunLines ? "☀️" : "";
-    var sunriseText = document.createElement("span");
-    sunriseText.className = "sun-text";
-    sunriseText.textContent = sunLines ? sunLines.sunrise : "";
-    sunriseRow.appendChild(sunriseIcon);
-    sunriseRow.appendChild(sunriseText);
+    function addSunRow(icon, text) {
+      var row = document.createElement("div");
+      row.className = "sun-row";
+      var iconEl = document.createElement("span");
+      iconEl.className = "icon";
+      iconEl.textContent = icon;
+      var textEl = document.createElement("span");
+      textEl.className = "sun-text";
+      textEl.textContent = text;
+      row.appendChild(iconEl);
+      row.appendChild(textEl);
+      sunBlock.appendChild(row);
+      return row;
+    }
 
-    var sunsetRow = document.createElement("div");
-    sunsetRow.className = "sun-row";
-    var sunsetIcon = document.createElement("span");
-    sunsetIcon.className = "icon";
-    sunsetIcon.textContent = sunLines ? "🌙" : "";
-    var sunsetText = document.createElement("span");
-    sunsetText.className = "sun-text";
-    sunsetText.textContent = sunLines ? sunLines.sunset : "";
-    sunsetRow.appendChild(sunsetIcon);
-    sunsetRow.appendChild(sunsetText);
-
-    sunBlock.appendChild(sunriseRow);
-    sunBlock.appendChild(sunsetRow);
+    if (sunLines) {
+      sunLines.sunrise.forEach(function(line) { addSunRow("☀️", line); });
+      sunLines.sunset.forEach(function(line) { addSunRow("🌙", line); });
+    } else {
+      addSunRow("", ""); // keep a reserved blank row for cities with no data
+    }
     card.appendChild(sunBlock);
 
     var weatherRow = document.createElement("div");
@@ -958,6 +973,17 @@
   refreshWeather();
   setInterval(tick, 1000);
   setInterval(refreshWeather, 20 * 60 * 1000); // refresh weather every 20 min
+
+  // Re-render if the widget stays open past a week boundary, so the
+  // 3-leg window advances without needing a page reload.
+  var lastLegWindowKey = getCurrentLegWindow(new Date()).join(",");
+  setInterval(function() {
+    var newKey = getCurrentLegWindow(new Date()).join(",");
+    if (newKey !== lastLegWindowKey) {
+      lastLegWindowKey = newKey;
+      render();
+    }
+  }, 60 * 60 * 1000); // check hourly
 })();
 </script>
 </body>
